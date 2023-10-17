@@ -1,0 +1,157 @@
+---
+title: "Poverty rates at international poverty lines"
+author: "Alberto"
+date: "2023-07-02"
+output: pdf_document
+---
+### **Loading of pertinent files and packages**
+```{r}
+set.seed(1234)
+setwd("C:/Users/Albert/OneDrive - De La Salle University - Manila/Documents/Thesis")
+library(caret)
+library(tidyverse)
+library(dplyr)
+library(broom)
+library(ggpmisc)
+library(car)
+library(rcompanion)
+df <- read.csv("Poverty rates at international poverty lines.csv")
+df$Class <- as.factor(df$Class)
+str(df)
+summary(df)
+table(df$Class)
+```
+### **Dataset division**
+```{r}
+classA <- df %>%
+  filter(Class == "A") %>%
+  sample_n(23, replace = FALSE)
+
+classB <- df %>%
+  filter(Class == "B") %>%
+  sample_n(23, replace = FALSE)
+
+train_dataset <- bind_rows(classA, classB)
+str(train_dataset)
+
+remainderA <- df %>%
+  filter(Class == "A") %>%
+  anti_join(classA)
+
+remainderB <- df %>%
+  filter(Class == "B") %>%
+  anti_join(classB)
+
+test_dataset <- bind_rows(remainderA, remainderB)
+str(test_dataset)
+```
+### **Model building**
+##Standardization
+```{r}
+preProcess_params <- preProcess(train_dataset[2:8], method = "scale")
+train_df_S <- predict(preProcess_params, train_dataset[2:8])
+str(train_df_S)
+preProcess_params <- preProcess(test_dataset[2:8], method = "scale")
+test_df_S <- predict(preProcess_params, test_dataset[2:8])
+summary(test_df_S)
+#Algorithm screening
+control <- trainControl(method="cv", number=10, classProbs = T, savePredictions = "all", summaryFunction = twoClassSummary)
+metric <- "ROC"
+
+#Generalized linear model 
+fit.glm <- train(Class~ ., data=train_df_S, method="glm", metric=metric, trControl=control)
+```
+### **Model evaluation**
+```{r}
+library(pROC)
+predictions <- predict(fit.glm, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+summary(fit.glm)
+predict.prob <- predict(fit.glm, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+```
+```{r}
+#Variable importance plot
+varimp_glm <- varImp(fit.glm)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+
+### ***Feature Selection***
+```{r}
+fit.glm7<- train(Class~ Poverty.gap.at..2.15.a.day + Poverty.gap.at..3.65.a.day + Poverty.headcount.ratio.at..2.15.a.day + Poverty.headcount.ratio.at..3.65.a.day + Poverty.gap.at..6.85.a.day , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm7
+predictions <- predict(fit.glm7, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm7, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm7)
+varimp_glm <- varImp(fit.glm7)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+```{r}
+fit.glm8<- train(Class~ Poverty.gap.at..2.15.a.day + Poverty.gap.at..3.65.a.day + Poverty.headcount.ratio.at..2.15.a.day + Poverty.headcount.ratio.at..3.65.a.day , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm8
+predictions <- predict(fit.glm8, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm8, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm8)
+varimp_glm <- varImp(fit.glm8)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+```{r}
+fit.glm9<- train(Class~ Poverty.gap.at..2.15.a.day + Poverty.gap.at..3.65.a.day + Poverty.headcount.ratio.at..3.65.a.day , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm9
+predictions <- predict(fit.glm9, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm9, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm9)
+varimp_glm <- varImp(fit.glm9)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+```{r}
+fit.glm10<- train(Class~ Poverty.gap.at..3.65.a.day + Poverty.headcount.ratio.at..3.65.a.day , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm10
+predictions <- predict(fit.glm10, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm10, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm10)
+varimp_glm <- varImp(fit.glm10)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+```{r}
+fit.glm11<- train(Class~ Poverty.gap.at..3.65.a.day , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm11
+predictions <- predict(fit.glm11, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm11, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm11)
+varimp_glm <- varImp(fit.glm11)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+### **Model Diagnostics**
+```{r}
+base <- glm(formula = Class~ Poverty.gap.at..3.65.a.day , family = binomial, data = train_df_S)
+nagelkerke(base)
+```
+```{r}
+model.data <- augment(base) %>%
+ mutate(index = 1:n())
+ggplot(model.data, aes(index, .std.resid)) + geom_point(aes(color=Class), alpha=0.5)
+model.data %>% filter(abs(.std.resid)>3)
+```
