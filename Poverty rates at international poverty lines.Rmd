@@ -1,0 +1,76 @@
+---
+title: "poverty rates at international poverty lines"
+author: "Alberto"
+date: "2023-06-04"
+output: html_document
+---
+
+### **Loading of pertinent files and packages**
+```{r}
+library(caret)
+library(dplyr)
+set.seed(1234)
+setwd("C:/Users/Albert/OneDrive - De La Salle University - Manila/Documents/Thesis")
+df <- read.csv("Poverty rates at international poverty lines.csv")
+df$Class <- as.factor(df$Class)
+str(df)
+table(df$Class)
+```
+
+### **Dataset division**
+```{r}
+classA <- df %>%
+  filter(Class == "A") %>%
+  sample_n(23, replace = FALSE)
+
+classB <- df %>%
+  filter(Class == "B") %>%
+  sample_n(23, replace = FALSE)
+
+train_dataset <- bind_rows(classA, classB)
+str(train_dataset)
+
+remainderA <- df %>%
+  filter(Class == "A") %>%
+  anti_join(classA)
+
+remainderB <- df %>%
+  filter(Class == "B") %>%
+  anti_join(classB)
+
+test_dataset <- bind_rows(remainderA, remainderB)
+str(test_dataset)
+train_df <- train_dataset[2:8]
+test_df <- test_dataset[2:8]
+```
+### **Model building**
+```{r}
+metric <- "ROC"
+control <- trainControl(method="cv", number=10, classProbs = T, savePredictions = "all", summaryFunction = twoClassSummary)
+fit.glm <- train(Class~ ., data=train_df, method="glm", metric=metric, trControl=control)
+```
+### **Model evaluation**
+```{r}
+library(pROC)
+predictions <- predict(fit.glm, test_dataset)
+test_results <- confusionMatrix(predictions, test_df$Class, mode = "everything")
+test_results
+summary(fit.glm)
+predict.prob <- predict(fit.glm, test_df, type = "prob")
+result.roc <- roc(test_df$Class, predict.prob$A)
+result.roc
+```
+### ***Feature Selection***
+```{r}
+fit.glm2<- train(Class~ Poverty.gap.at..2.15.a.day + Poverty.gap.at..3.65.a.day + Poverty.headcount.ratio.at..2.15.a.day + Poverty.headcount.ratio.at..3.65.a.day + Poverty.gap.at..6.85.a.day + Poverty.headcount.ratio.at..6.85.a.day , data=train_df, method="glm", metric=metric, trControl=control)
+fit.glm2
+predictions <- predict(fit.glm2, test_dataset)
+test_results <- confusionMatrix(predictions, test_df$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm2, test_df, type = "prob")
+result.roc <- roc(test_df$Class, predict.prob$A)
+result.roc
+summary(fit.glm2)
+varimp_glm <- varImp(fit.glm2)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```

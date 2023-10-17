@@ -1,0 +1,133 @@
+---
+title: "Prices and Terms of Trade"
+author: "Alberto"
+date: "2023-07-02"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+### **Loading of pertinent files and packages**
+```{r}
+set.seed(1234)
+setwd("C:/Users/Albert/OneDrive - De La Salle University - Manila/Documents/Thesis")
+library(caret)
+library(tidyverse)
+library(dplyr)
+library(broom)
+library(ggpmisc)
+library(car)
+library(rcompanion)
+df <- read.csv("4 prices and terms of trade.csv")
+df$Class <- as.factor(df$Class)
+str(df)
+summary(df)
+table(df$Class)
+```
+### **Dataset division**
+```{r}
+classA <- df %>%
+  filter(Class == "A") %>%
+  sample_n(56, replace = FALSE)
+
+classB <- df %>%
+  filter(Class == "B") %>%
+  sample_n(56, replace = FALSE)
+
+train_dataset <- bind_rows(classA, classB)
+str(train_dataset)
+
+remainderA <- df %>%
+  filter(Class == "A") %>%
+  anti_join(classA)
+
+remainderB <- df %>%
+  filter(Class == "B") %>%
+  anti_join(classB)
+
+test_dataset <- bind_rows(remainderA, remainderB)
+str(test_dataset)
+```
+### **Model building**
+#Standardization
+```{r}
+preProcess_params <- preProcess(train_dataset[2:6], method = "scale")
+train_df_S <- predict(preProcess_params, train_dataset[2:6])
+str(train_df_S)
+preProcess_params <- preProcess(test_dataset[2:6], method = "scale")
+test_df_S <- predict(preProcess_params, test_dataset[2:6])
+summary(test_df_S)
+#Algorithm screening
+control <- trainControl(method="cv", number=10, classProbs = T, savePredictions = "all", summaryFunction = twoClassSummary)
+metric <- "ROC"
+
+#Generalized linear model 
+fit.glm <- train(Class~ ., data=train_df_S, method="glm", metric=metric, trControl=control)
+```
+### **Model evaluation**
+```{r}
+library(pROC)
+predictions <- predict(fit.glm, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+summary(fit.glm)
+predict.prob <- predict(fit.glm, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+```
+```{r}
+#Variable importance plot
+varimp_glm <- varImp(fit.glm)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+### ***Feature Selection***
+```{r}
+fit.glm2<- train(Class~ Consumer.PI + Import.UVI + Net.barter.terms , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm2
+predictions <- predict(fit.glm2, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm2, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm2)
+varimp_glm <- varImp(fit.glm2)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+```{r}
+fit.glm2<- train(Class~ Consumer.PI + Import.UVI , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm2
+predictions <- predict(fit.glm2, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm2, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm2)
+varimp_glm <- varImp(fit.glm2)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+```{r}
+fit.glm2<- train(Class~ Import.UVI , data=train_df_S, method="glm", metric=metric, trControl=control)
+fit.glm2
+predictions <- predict(fit.glm2, test_dataset)
+test_results <- confusionMatrix(predictions, test_df_S$Class, mode = "everything")
+test_results
+predict.prob <- predict(fit.glm2, test_df_S, type = "prob")
+result.roc <- roc(test_df_S$Class, predict.prob$A)
+result.roc
+summary(fit.glm2)
+varimp_glm <- varImp(fit.glm2)
+plot(varimp_glm, main = "Variable Importance (Logistic Regression)")
+```
+### **Model Diagnostics**
+```{r}
+base <- glm(formula = Class~ Import.UVI , family = binomial, data = train_df_S)
+nagelkerke(base)
+```
+```{r}
+model.data <- augment(base) %>%
+ mutate(index = 1:n())
+ggplot(model.data, aes(index, .std.resid)) + geom_point(aes(color=Class), alpha=0.5)
+model.data %>% filter(abs(.std.resid)>3)
+```
